@@ -1,0 +1,90 @@
+version: "2.2"
+services:
+  flyway:
+    image: boxfuse/flyway
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:11.2
+    ports:
+      - 5432:5432
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+      - PGDATA=/var/lib/postgresql/data
+    container_name: postgres-docker
+
+  zooclient:
+    image: zookeeper:3.5.4-beta
+    depends_on:
+      - zookeper
+    networks:
+      - zoonet
+    restart: "no"
+    command: bin/zkCli.sh -server zookeper:2181
+
+  zookeper:
+    image: zookeeper:3.5.4-beta
+    ports:
+      - 2181:2181
+      - 2888:2888
+      - 3888:3888
+    restart: always
+    networks:
+      - zoonet
+
+  zipkin:
+    image: openzipkin/zipkin:2
+    ports:
+      - 9411:9411
+    restart: always
+    networks:
+      - zoonet
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.6.2
+    restart: always
+    container_name: elasticsearch
+    environment:
+      - node.name=quota1
+      - cluster.name=elasticsearch
+      - http.host=0.0.0.0
+      - http.port=9200
+      - transport.publish_host=127.0.0.1
+      - http.publish_host=127.0.0.1
+      - transport.tcp.port=9300
+      - transport.tcp.connect_timeout=10s
+      - discovery.zen.minimum_master_nodes=1
+      - discovery.type=single-node
+      - http.cors.enabled=true
+      - node.data=true
+      - node.master=true
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.graph.enabled=false
+      - xpack.watcher.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms128m -Xmx128m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 9200:9200
+      - 9300:9300
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./rabbitmq/definitions.json:/opt/rabbitmq/definitions.json:ro
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+
+networks:
+  zoonet:
